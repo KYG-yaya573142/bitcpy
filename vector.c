@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>                                                                                                                                            
 #include <stdlib.h>
@@ -18,6 +19,7 @@
         : (size_t) 1 << (64 - __builtin_clzl(s)) /* next power of 2 */
 
 #define v(t, s, name, ...)                                              \
+    _Static_assert(strncmp(#t, "void", 4), "error type");               \
     union {                                                             \
         STRUCT_BODY(t);                                                 \
         struct {                                                        \
@@ -25,8 +27,8 @@
             t buf[NEXT_POWER_OF_2(s)];                                  \
         };                                                              \
     } name __attribute__((cleanup(vec_free))) = {.buf = {__VA_ARGS__}}; \
-    name.size = sizeof( (__typeof__(name.buf[0])[]){__VA_ARGS__} ) /   \
-                    sizeof(name.buf[0]);                            \
+    name.size = sizeof( (__typeof__(name.buf[0])[]){__VA_ARGS__} ) /    \
+                    sizeof(name.buf[0]);                                \
     name.capacity = sizeof(name.buf) / sizeof(name.buf[0])
 
 #define vec_size(v) v.size
@@ -36,14 +38,14 @@
 #define vec_data(v) (v.on_heap ? v.ptr : v.buf) /* always contiguous buffer */
 
 #define vec_elemsize(v) sizeof(v.buf[0])
-#define vec_pos(v, n) vec_data(v)[n] /* lvalue */
+#define vec_pos(v, n) *(__typeof__(v.buf[0]) *) _vec_pos(&v, n, vec_elemsize(v))
 
 #define vec_reserve(v, n) __vec_reserve(&v, n, vec_elemsize(v), vec_capacity(v))
 #define vec_push_back(v, e)                                            \
     __vec_push_back(&v, &(__typeof__(v.buf[0])[]){e}, vec_elemsize(v), \
                     vec_capacity(v))
 
-#define vec_pop_back(v) (void) (v.size -= 1)
+#define vec_pop_back(v) (void) (v.size -= !!v.size)
 
 /* This function attribute specifies function parameters that are not supposed
  * to be null pointers. This enables the compiler to generate a warning on
@@ -120,18 +122,29 @@ static NON_NULL void __vec_push_back(void *restrict vec,
     }
 }
 
+static NON_NULL void *_vec_pos(void *vec,
+                               size_t n,
+                               size_t elemsize)
+{
+    union {
+        STRUCT_BODY(char);
+        struct {
+            size_t filler;
+            char buf[];
+        };
+    } *v = vec;
+
+    assert(v->size > n);
+
+    return (void *)
+           ((v->on_heap ? v->ptr : v->buf) + n * elemsize);
+}
+
 int main()
 {
-    v(float, 7, vec1);
-    v(int, 2, vec2, 13, 42);
-printf("vec size %zu\n", vec_size(vec1));
-    printf("pos(vec2,0)=%d, pos(vec2,1)=%d\n", vec_pos(vec2, 0),
-           vec_pos(vec2, 1));
-    vec_push_back(vec2, 88);
-    vec_reserve(vec2, 100);
-    printf("capacity(vec1)=%zu, capacity(vec2)=%zu\n", vec_capacity(vec1),
-           vec_capacity(vec2));
-    printf("pos(vec2,2)=%d\n", vec_pos(vec2, 2));
+    v(float, 3, vec1);
+
+    printf("capacity(vec1)=%zu\n\n", vec_capacity(vec1));
 
 #define display(v)                               \
     do {                                         \
