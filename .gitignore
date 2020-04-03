@@ -1,6 +1,7 @@
 test
 result*
 out*
+vector
 *.o
 *.o.d
 .vscode
