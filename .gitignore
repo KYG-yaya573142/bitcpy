@@ -1,0 +1,6 @@
+test
+result*
+out*
+*.o
+*.o.d
+.vscode
