@@ -2,13 +2,13 @@ CC = gcc
 CFLAGS = -g -Wall -Werror
 
 vector: vector.c
-	$(CC) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< -lm
 
 test: test.o bitcpy.o
 	$(CC) -o $@ $^
 
 %.o: %.c
-	$(CC) $(CFLAG) -o $@ -c $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 perf:
 	sudo perf stat -e branch-instructions,branch-misses ./test
